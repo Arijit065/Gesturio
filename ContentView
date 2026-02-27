@@ -1,0 +1,21 @@
+import SwiftUI
+
+struct ContentView: View {
+    // We moved the state variable here!
+    @State private var showOnboarding: Bool = true
+    
+    var body: some View {
+        ZStack {
+            // 1. The main app is always running at the bottom
+            HomeView()
+            
+            // 2. The Onboarding screen sits on top
+            if showOnboarding {
+                OnboardingView(showOnboarding: $showOnboarding)
+                // This makes it fade out smoothly when the button is clicked
+                    .transition(.opacity) 
+                    .zIndex(1) // Ensures it stays on top of the HomeView
+            }
+        }
+    }
+}
