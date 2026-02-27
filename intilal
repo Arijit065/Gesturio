@@ -1,0 +1,227 @@
+import SwiftUI
+
+// MARK: - MAIN VIEW
+struct ContentView: View {
+    @Environment(\.horizontalSizeClass) var sizeClass
+    @State private var inputText: String = ""
+    
+    // Adaptive grid layout for the letter cards
+    let columns = [GridItem(.adaptive(minimum: 60, maximum: 90), spacing: 12)]
+    
+    var body: some View {
+        ZStack {
+            // Background
+            Color(UIColor.systemGroupedBackground)
+                .ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                // Header with Profile Logo
+                HeaderView(isIPad: sizeClass == .regular)
+                
+                // Input Text Field
+                SearchBarView(text: $inputText)
+                    .padding(.horizontal)
+                    .padding(.bottom, 15)
+                
+                Divider()
+                
+                // Main Translation Area
+                ScrollView {
+                    if inputText.isEmpty {
+                        EmptyStateView()
+                            .padding(.top, 80)
+                    } else {
+                        TranslationFlowView(text: inputText, columns: columns)
+                    }
+                }
+            }
+        }
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: inputText)
+    }
+}
+
+// MARK: - SUB-VIEWS
+
+/// Handles the logic of splitting sentences into words and filtering out punctuation
+struct TranslationFlowView: View {
+    let text: String
+    let columns: [GridItem]
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 30) {
+            // Split by space
+            let words = text.components(separatedBy: " ")
+            
+            ForEach(Array(words.enumerated()), id: \.offset) { index, word in
+                // Data Sanitization: Strip out punctuation (only keep letters/numbers)
+                let cleanWord = String(word.filter { $0.isLetter || $0.isNumber })
+                
+                // Only show the row if there are valid characters OR if it's the active word
+                if !cleanWord.isEmpty || index == words.count - 1 {
+                    VStack(alignment: .leading, spacing: 8) {
+                        
+                        Text("Word \(index + 1)")
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .foregroundColor(.secondary)
+                            .padding(.leading, 5)
+                            .accessibilityHidden(true)
+                        
+                        LazyVGrid(columns: columns, alignment: .leading, spacing: 12) {
+                            ForEach(Array(cleanWord.enumerated()), id: \.offset) { _, char in
+                                ASLCard(letter: String(char))
+                            }
+                        }
+                    }
+                    .padding(.horizontal)
+                    
+                    if index < words.count - 1 && !cleanWord.isEmpty {
+                        Divider().padding(.horizontal, 40)
+                    }
+                }
+            }
+        }
+        .padding(.vertical, 20)
+    }
+}
+
+/// The individual letter card
+struct ASLCard: View {
+    let letter: String
+    
+    var body: some View {
+        VStack(spacing: 6) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color(UIColor.secondarySystemGroupedBackground))
+                    .shadow(color: Color.black.opacity(0.06), radius: 4, x: 0, y: 2)
+                
+                // Try to load the letter image from Assets (e.g., "a", "b")
+                if let uiImage = UIImage(named: letter.lowercased()) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .padding(8)
+                } else {
+                    // Fallback for missing letter images
+                    Text(letter.uppercased())
+                        .font(.system(size: 32, weight: .black, design: .rounded))
+                        .foregroundColor(.accentColor.opacity(0.8))
+                }
+            }
+            .aspectRatio(0.8, contentMode: .fit)
+            
+            Text(letter.uppercased())
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(.secondary)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Sign language letter \(letter)")
+    }
+}
+
+/// The Header Component with Profile Logo
+struct HeaderView: View {
+    let isIPad: Bool
+    
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Gesturio")
+                    .font(.system(size: isIPad ? 42 : 32, weight: .heavy, design: .rounded))
+                    .foregroundColor(.accentColor)
+                
+                Text("Real-time ASL Fingerspelling")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            // Profile Logo Button
+            Button(action: {
+                print("Profile logo tapped!")
+            }) {
+                ZStack {
+                    Circle()
+                        .fill(Color(UIColor.secondarySystemGroupedBackground))
+                        .frame(width: isIPad ? 60 : 45, height: isIPad ? 60 : 45)
+                        .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+                    
+                    // Try to load user photo named "profile" from Assets
+                    if let uiImage = UIImage(named: "profile") {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: isIPad ? 60 : 45, height: isIPad ? 60 : 45)
+                            .clipShape(Circle())
+                    } else {
+                        // Fallback user icon
+                        Image(systemName: "person.fill")
+                            .font(.system(size: isIPad ? 30 : 22))
+                            .foregroundColor(.accentColor.opacity(0.8))
+                    }
+                }
+            }
+            .accessibilityLabel("User Profile")
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, isIPad ? 40 : 20)
+        .padding(.bottom, 10)
+    }
+}
+
+/// The Input Field Component
+struct SearchBarView: View {
+    @Binding var text: String
+    
+    var body: some View {
+        HStack {
+            Image(systemName: "text.format")
+                .foregroundColor(.accentColor)
+                .font(.title3)
+            
+            TextField("Type a sentence to translate...", text: $text)
+                .font(.title3)
+                .disableAutocorrection(true)
+                .submitLabel(.done)
+            
+            if !text.isEmpty {
+                Button(action: { text = "" }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.gray.opacity(0.6))
+                        .font(.title3)
+                }
+                .accessibilityLabel("Clear text")
+            }
+        }
+        .padding(16)
+        .background(Color(UIColor.secondarySystemGroupedBackground))
+        .cornerRadius(18)
+        .shadow(color: Color.black.opacity(0.05), radius: 6, x: 0, y: 3)
+        .frame(maxWidth: 800)
+    }
+}
+
+/// The Placeholder View
+struct EmptyStateView: View {
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "hands.sparkles.fill")
+                .font(.system(size: 70))
+                .foregroundColor(.accentColor.opacity(0.3))
+            
+            Text("Bridge the Gap")
+                .font(.title2)
+                .fontWeight(.bold)
+                .foregroundColor(.primary)
+            
+            Text("Type English text above to instantly\nconvert it into ASL fingerspelling.")
+                .font(.callout)
+                .multilineTextAlignment(.center)
+                .foregroundColor(.secondary)
+                .frame(maxWidth: 300)
+        }
+    }
+}
